@@ -10,7 +10,7 @@
 # and build.py / build2.py ... build13.py (i.e. run this from inside the
 # extracted conversion-source-code.zip, or pass -s/--scripts to point at it).
 #
-# Produces, inside [workdir] (default: ./mc-conversion-work):
+# Produces, inside [workdir] (default: ./build):
 #   1.8.9-legacy-textures-26.1.2.zip   <- the finished resource pack
 #   mapping_data.json                  <- full matched/unmatched audit trail
 #
@@ -23,7 +23,7 @@ set -euo pipefail
 
 usage() {
     echo "Usage: $0 <1.8.9-pack.zip> <26.1.2-pack.zip> [workdir]" >&2
-    echo "  workdir defaults to ./mc-conversion-work" >&2
+    echo "  workdir defaults to ./build" >&2
     exit 1
 }
 
@@ -31,8 +31,8 @@ usage() {
 
 OLD_ZIP=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 NEW_ZIP=$(cd "$(dirname "$2")" && pwd)/$(basename "$2")
-mkdir -p "${3:-$(pwd)/mc-conversion-work}"
-WORKDIR=$(cd "${3:-$(pwd)/mc-conversion-work}" && pwd)
+mkdir -p "${3:-$(pwd)/build}"
+WORKDIR=$(cd "${3:-$(pwd)/build}" && pwd)
 SCRIPT_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)"
 
 for tool in python3 unzip zip sed; do

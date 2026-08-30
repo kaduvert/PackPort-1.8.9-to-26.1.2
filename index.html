@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>1.8.9 → 26.1.2 Texture Pack Converter</title>
+<meta name="description" content="Drop in an old 1.8.9 resource pack and get back a 26.1.2-compatible version. Runs entirely in your browser." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="site-header">
+    <p class="eyebrow">RESOURCE PACK CONVERTER</p>
+    <h1>1.8.9 <span class="arrow-glyph">→</span> 26.1.2</h1>
+    <p class="tagline">Bring your old texture pack forward. Runs entirely on your machine — your pack is never uploaded anywhere.</p>
+  </header>
+
+  <main>
+
+    <!-- ============================== UPLOAD ============================== -->
+    <section id="panel-upload" class="panel">
+
+      <div class="crafting-row">
+        <div class="slot slot-in" aria-hidden="true">
+          <span class="slot-label">1.8.9</span>
+        </div>
+        <div class="slot-arrow" aria-hidden="true">➜</div>
+        <div class="slot slot-out" aria-hidden="true">
+          <span class="slot-label">26.1.2</span>
+        </div>
+      </div>
+
+      <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Choose a 1.8.9 resource pack zip file">
+        <p class="drop-zone-title">Drop your 1.8.9 pack here</p>
+        <p class="drop-zone-sub">or click to browse — a .zip with pack.mcmeta and an assets/ folder</p>
+        <p id="file-name" class="file-name"></p>
+      </div>
+      <input type="file" id="file-input" accept=".zip" hidden />
+
+      <div id="second-upload-slot" class="second-upload-slot" hidden></div>
+
+      <button id="convert-btn" class="btn btn-primary" disabled>Convert my pack</button>
+      <p id="engine-status" class="engine-status">Loading Python runtime…</p>
+
+      <details class="how-it-works">
+        <summary>What actually happens to your textures (13 stages)</summary>
+        <ol class="stage-list">
+          <li><b>Matching blocks &amp; items</b> — exact filename matches, then a hand-built alias table, then fuzzy name matching</li>
+          <li><b>Matching entities, environment &amp; effects</b> — plus a pass of safety checks</li>
+          <li><b>Rebuilding GUI &amp; HUD sprites</b> — container backgrounds and HUD icons</li>
+          <li><b>Slicing animation frames</b> — clock and compass frame sheets</li>
+          <li><b>Bed icons &amp; chests</b> — item-icon override and an initial glint pass</li>
+          <li><b>Paintings</b> — placed from the original atlas</li>
+          <li><b>Bad Omen bottle</b> — redesigned, promo stubs cleaned up</li>
+          <li><b>Full texture-tree audit</b> — catches anything the earlier passes missed</li>
+          <li><b>Pig / cow / mooshroom fixes</b> — pixel-overlap-verified compositing</li>
+          <li><b>Chests, armor &amp; pack icon</b> — seam fixes, armor layers, final exact-match audit</li>
+          <li><b>Your requested removals</b> — water/panorama/single-chest/donkey/etc, plus a particle port</li>
+          <li><b>Mob simplification</b> — keeps only the basic mob set</li>
+          <li><b>Final cleanup</b> — strips everything logged as unmatched</li>
+        </ol>
+      </details>
+
+    </section>
+
+    <!-- ============================ CONVERTING ============================ -->
+    <section id="panel-converting" class="panel" hidden>
+      <div class="furnace">
+        <div class="furnace-bar"><div id="stage-arrow-fill" class="furnace-bar-fill"></div></div>
+        <p id="stage-label" class="stage-label">Starting…</p>
+      </div>
+      <pre id="log" class="log" aria-live="polite"></pre>
+    </section>
+
+    <!-- ============================== SUCCESS ============================== -->
+    <section id="panel-success" class="panel" hidden>
+      <h2>Your pack is ready</h2>
+      <div id="summary-stats" class="summary-stats"></div>
+      <div class="download-row">
+        <button id="download-pack" class="btn btn-primary">Download resource pack (.zip)</button>
+        <button id="download-report" class="btn btn-secondary">Download match report (.json)</button>
+      </div>
+      <button id="reset-btn" class="btn btn-ghost">Convert another pack</button>
+    </section>
+
+    <!-- =============================== ERROR =============================== -->
+    <section id="panel-error" class="panel" hidden>
+      <h2>Conversion didn't finish</h2>
+      <p id="error-message" class="error-message"></p>
+      <p class="error-hint">This can happen with resource packs that are missing textures or don't follow the standard pack layout. Check the browser console for the full Python traceback.</p>
+      <button id="reset-btn-error" class="btn btn-ghost">Try again</button>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Conversion logic runs locally via <a href="https://pyodide.org" target="_blank" rel="noopener">Pyodide</a> (Python compiled to WebAssembly). No files are sent to a server.</p>
+  </footer>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v314.0.6/full/pyodide.js"></script>
+<script src="app.js"></script>
+
+<!-- SEO & Accessibility Fallback: Visible to Googlebot and users with JS disabled -->
+<section style="margin-top: 3rem; padding: 1.5rem; border-top: 1px solid #ccc; color: #555; font-family: sans-serif;">
+  <h2>About PackPort: Minecraft Resource Pack Converter</h2>
+  <p>
+    PackPort is a free, browser-based tool that automatically updates 1.8.9 
+    Minecraft resource packs to the newest version (26.1.2).
+    It aims to be the most advanced, complete tools for this job out there,
+    targeting 100% of assets ported.
+  </p>
+  <p>
+    <strong>100% Private:</strong> The conversion runs entirely in your browser using 
+    WebAssembly. Your files are never uploaded to any server.
+  </p>
+  <h3>How it works:</h3>
+  <ul>
+    <li>Upload your 1.8.9 <code>.zip</code> resource pack.</li>
+    <li>The tool matches blocks, items, and entities using a built-in alias table.</li>
+    <li>Download your newly converted pack and a detailed match report instantly.</li>
+  </ul>
+  <p><em>Note: This tool requires JavaScript. The conversion engine loads automatically on your first interaction with the page.</em></p>
+</section>
+</body>
+</html>
