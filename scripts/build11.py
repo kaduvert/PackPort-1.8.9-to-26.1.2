@@ -1,4 +1,4 @@
-import json, shutil, os
+import json, os
 
 ROOT = "/home/claude/work"
 NEW = f"{ROOT}/new_pack/assets/minecraft/textures/entity"
@@ -32,12 +32,9 @@ all_folders = set(os.path.basename(p) for p in
 revert_folders = all_folders - NOT_A_MOB - KEEP_MOB_FOLDERS - set(SIMPLIFY_TO_BASE.keys())
 
 def revert_file(rel, reason):
-    src, dst = f"{NEW}/{rel}", f"{OUT}/{rel}"
-    if os.path.isfile(src):
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copyfile(src, dst)
-    elif os.path.isfile(dst):
-        os.remove(dst)
+    """Mark entity file as unmatched so build6 strips it.
+    No file write needed - the file was either never written (thanks to the
+    copytree-only approach) or will be stripped by build6 anyway."""
     full_rel = f"entity/{rel}"
     report['matched'] = [m for m in report['matched'] if m['new'] != full_rel]
     report['unmatched'] = [m for m in report['unmatched'] if m['new'] != full_rel]

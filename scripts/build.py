@@ -75,12 +75,8 @@ def process_category(catname, old_sub, new_sub, alias_dict, no_equiv_dict, fuzzy
             elif method.startswith("alias"): n_alias += 1
             else: n_fuzzy += 1
         else:
-            # fall through: copy the modern default unchanged so pack stays complete
-            os.makedirs(os.path.dirname(rel_target), exist_ok=True)
-            shutil.copyfile(new_path, rel_target)
-            meta = new_path + ".mcmeta"
-            if os.path.isfile(meta):
-                shutil.copyfile(meta, rel_target + ".mcmeta")
+            # output_pack already has this file byte-identical, from the
+            # initial copytree of new_pack - nothing to copy, just record why
             reason = no_equiv_dict.get(new_base, "no matching 1.8.9 source found (new content)")
             report["unmatched"].append({
                 "category": catname, "new": f"{new_sub}/{new_base}.png", "reason": reason

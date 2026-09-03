@@ -92,11 +92,11 @@ def fix_chests():
 
     # double chest: the attempt to extend the same fix to each half produced
     # genuinely corrupted alpha (~58%/16% opaque split vs a correct ~37%
-    # symmetric one) - revert to modern default rather than ship it broken
+    # symmetric one) - mark as unmatched so build6 strips it; no file write
+    # needed since the initial copytree already has the modern default in place
     for name in ["normal_left", "normal_right", "trapped_left", "trapped_right",
                  "christmas_left", "christmas_right"]:
         rel = f"entity/chest/{name}.png"
-        shutil.copyfile(f"{NEW}/{rel}", f"{OUT_ASSETS}/textures/{rel}")
         set_unmatched(rel, "reverted to modern default: the double-chest reconstruction (simple "
                             "crop-in-half of the old wide image) has the same inside/outside UV "
                             "mismatch as single chest did, and applying the single-chest layout fix "
@@ -161,26 +161,9 @@ def port_armor_layers():
     print(f"armor layers ported: {done}/12")
 
 
-# ------------------------------------------------------------------ BED ---
-def revert_bed_block_texture():
-    """Unlike pig/cow (verified via clean pixel-overlap matching against
-    the modern default), bed's 1.8.9 format is six separate 16x16 files,
-    not a taller version of one comparable file, so no equivalent overlap
-    test exists, and there's no way to render the 3D model here to verify
-    alignment directly. Revert the block/entity texture; the flat 2D item
-    icon (no alignment risk) keeps the 1.8.9 look."""
-    colors = ["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
-              "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]
-    for c in colors:
-        rel = f"entity/bed/{c}.png"
-        shutil.copyfile(f"{NEW}/{rel}", f"{OUT}/{rel}")
-        set_unmatched(rel, "reverted: bed's 1.8.9 format (six separate 16x16 pieces) is structurally "
-                            "different from 26.1.2's single 64x64 file, not just a resolution change. "
-                            "The region-boundary reconstruction attempted earlier could not be "
-                            "verified without 3D-rendering capability, so this reverts to the modern "
-                            "default block texture. The item icon keeps the 1.8.9 look (no alignment "
-                            "risk for a flat 2D sprite).")
-    print("bed block/entity texture reverted (16 files)")
+# bed's block/entity texture is intentionally never generated (see
+# build5.py's process_bed docstring) - build9.py's full-tree audit picks
+# up entity/bed/*.png as unmatched automatically, no revert step needed.
 
 
 # --------------------------------------------- FINAL-AUDIT EXACT MATCHES --
@@ -235,7 +218,6 @@ if __name__ == "__main__":
     fix_chests()
     fix_armor_icon_swap()
     port_armor_layers()
-    revert_bed_block_texture()
     final_audit_exact_matches()
     set_pack_icon()
     with open(f"{ROOT}/report_stage10.json", "w") as f:

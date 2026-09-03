@@ -15,7 +15,7 @@ shapes (the same tint-at-runtime mechanism as the enchant glint) and
 confirmed pixel-identical against 26.1.2's own reference textures before
 use - not guessed.
 """
-import json, os, shutil
+import json, os
 from PIL import Image
 
 ROOT = "/home/claude/work"
@@ -27,12 +27,10 @@ report = json.load(open(f"{ROOT}/report_stage10.json"))
 
 
 def revert(rel, reason):
-    src, dst = f"{NEW}/{rel}", f"{OUT}/{rel}"
-    if os.path.isfile(src):
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copyfile(src, dst)
-    elif os.path.isfile(dst):
-        os.remove(dst)
+    """Mark a file as unmatched (so build6.py's strip pass will remove it).
+    Does NOT write anything to disk - the file was either never written
+    (unmatched items, after Phase 1 cleanup) or will be stripped by build6
+    regardless; a redundant write here would just get deleted seconds later."""
     report["matched"] = [m for m in report["matched"] if m["new"] != rel]
     report["unmatched"] = [m for m in report["unmatched"] if m["new"] != rel]
     report["unmatched"].append({"category": rel.split("/")[0], "new": rel, "reason": reason})

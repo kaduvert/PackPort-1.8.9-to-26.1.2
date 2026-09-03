@@ -19,9 +19,6 @@ DYE_RGB = {
 }
 
 # ============================================================== BED =======
-def load_block(n):
-    return Image.open(f"{OLD}/blocks/{n}.png").convert("RGBA")
-
 def retint_fabric(im, target_rgb, g_thresh=75, b_thresh=75):
     arr = np.array(im).astype(np.float32)
     r,g,b,a = arr[...,0],arr[...,1],arr[...,2],arr[...,3]
@@ -35,62 +32,18 @@ def retint_fabric(im, target_rgb, g_thresh=75, b_thresh=75):
     out[...,3]=a
     return Image.fromarray(out.astype(np.uint8),"RGBA")
 
-def flat_fabric(target_rgb, size, noise=10, seed=42):
-    rng = np.random.default_rng(seed)
-    base = np.array(target_rgb, dtype=np.float32)
-    arr = np.clip(base + rng.integers(-noise,noise+1,(size[1],size[0],3)), 0,255).astype(np.uint8)
-    alpha = np.full((size[1],size[0],1), 255, dtype=np.uint8)
-    return Image.fromarray(np.dstack([arr,alpha]), "RGBA")
-
-def tile_into(canvas, swatch, box):
-    w,h = box[2]-box[0], box[3]-box[1]
-    sw,sh = swatch.size
-    tiled = Image.new("RGBA",(w,h))
-    for yy in range(0,h,sh):
-        for xx in range(0,w,sw):
-            tiled.paste(swatch,(xx,yy))
-    canvas.paste(tiled.crop((0,0,w,h)), (box[0],box[1]))
-
-def build_bed_block_texture(color, head_top, feet_top, planks):
-    rgb = DYE_RGB[color]
-    ht = retint_fabric(head_top, rgb)
-    ft = retint_fabric(feet_top, rgb)
-    fabric_sw = flat_fabric(rgb, (8,8))
-    canvas = Image.new("RGBA",(64,64),(0,0,0,0))
-    canvas.paste(ht.resize((16,16), Image.NEAREST), (6,0))
-    tile_into(canvas, planks, (22,0,48,22))
-    tile_into(canvas, fabric_sw, (0,16,22,22))
-    tile_into(canvas, fabric_sw, (22,22,40,24))
-    canvas.paste(ft.resize((16,16), Image.NEAREST), (0,32))
-    tile_into(canvas, fabric_sw, (16,24,32,32))
-    tile_into(canvas, planks, (24,24,48,56))
-    leg_sw = planks.resize((8,8), Image.NEAREST)
-    tile_into(canvas, leg_sw, (48,0,64,16))
-    tile_into(canvas, leg_sw, (48,16,64,32))
-    return canvas
-
 def process_bed():
-    head_top = load_block("bed_head_top")
-    feet_top = load_block("bed_feet_top")
-    planks = load_block("planks_oak")
+    """Only the flat item icon override survives - the block/entity texture
+    composite (16 files, per-colour tinted from bed_head_top/feet_top/
+    planks_oak) was tried here originally but its alignment could never be
+    verified (bed's 1.8.9 format is six separate files, not a taller
+    version of one comparable file the way pig/cow's UV-safety check
+    could verify), so it was always going to be reverted later. Not
+    generating it at all removes that dead work."""
     item_bed = Image.open(f"{OLD}/items/bed.png").convert("RGBA")
 
     for color in DYE_RGB:
-        # 1) block/entity texture
-        block_tex = build_bed_block_texture(color, head_top, feet_top, planks)
-        target = f"{OUT}/entity/bed/{color}.png"
-        if os.path.isfile(target):
-            block_tex.save(target)
-            report["matched"].append({
-                "category": "entity", "new": f"entity/bed/{color}.png",
-                "old_source": "blocks/bed_head_top.png + bed_feet_top.png + planks_oak.png (composited)",
-                "method": "reconstructed(bed UV layout inferred + per-color tint)",
-                "note": "best-effort UV layout (no old single-file reference existed to verify against, "
-                        "unlike chest); pillow/fabric regions confirmed via colour-diffing all 16 modern "
-                        "bed files against each other, wood regions use planks_oak.png for a clean tileable look"
-            })
-
-        # 2) flat item icon (old 1.8.9 sprite, recoloured), overriding the
+        # flat item icon (old 1.8.9 sprite, recoloured), overriding the
         # modern 3D-rendered item model with a flat generated icon
         icon = retint_fabric(item_bed, DYE_RGB[color])
         icon_target = f"{OUT}/item/{color}_bed.png"
@@ -115,61 +68,6 @@ def process_bed():
     print("bed done")
 
 # ============================================================= CHEST ======
-def fix_chest_layout(im):
-    """Swap lid-top pair, base pair, and the latch-bearing strip cell to
-    match 26.1.2's chest UV layout. Verified pixel-exact against the real
-    old vs new default chest.png (see conversation notes)."""
-    im = im.copy()
-    def swap_box(a_box, b_box):
-        a = im.crop(a_box); b = im.crop(b_box)
-        im.paste(b, a_box); im.paste(a, b_box)
-    swap_box((14,0,28,14), (28,0,42,14))
-    swap_box((14,14,28,19), (42,14,56,19))
-    swap_box((14,19,28,33), (28,19,42,33))
-    swap_box((14,33,28,43), (42,33,56,43))
-    return im
-
-def process_chest():
-    for name in ["normal", "trapped", "christmas"]:
-        src = f"{OLD}/entity/chest/{name}.png"
-        if not os.path.isfile(src):
-            continue
-        fixed = fix_chest_layout(Image.open(src).convert("RGBA"))
-        target = f"{OUT}/entity/chest/{name}.png"
-        fixed.save(target)
-        for m in report["matched"]:
-            if m["new"] == f"entity/chest/{name}.png":
-                m["method"] = "exact + UV-relayout fix"
-                m["note"] = ("1.8.9's flat chest.png cells don't line up with 26.1.2's chest UV anymore "
-                              "(lid-top pair, base pair, and each side-strip's latch cell were relocated) "
-                              "- relocated the source pixels to match, verified pixel-exact against the "
-                              "actual old-vs-new default texture diff")
-    # double-chest halves: crop first, then apply the SAME relative fix to
-    # each 64-wide half independently (extrapolated - unlike the single
-    # chest, there's no modern reference to diff this against, since 26.1.2
-    # never shipped a combined double-chest file to compare with)
-    import sys
-    sys.path.insert(0, os.path.dirname(__file__))
-    from aliases import CHEST_DOUBLE_SPLITS
-    for old_rel, left_rel, right_rel in CHEST_DOUBLE_SPLITS:
-        src = f"{OLD}/{old_rel}.png"
-        if not os.path.isfile(src):
-            continue
-        im = Image.open(src).convert("RGBA")
-        w, h = im.size
-        half = w // 2
-        left_img = fix_chest_layout(im.crop((0,0,half,h)))
-        right_img = fix_chest_layout(im.crop((half,0,w,h)))
-        for half_img, target_rel in [(left_img, left_rel), (right_img, right_rel)]:
-            target = f"{OUT}/entity/{target_rel}.png"
-            if os.path.isfile(target):
-                half_img.save(target)
-                for m in report["matched"]:
-                    if m["new"] == f"entity/{target_rel}.png":
-                        m["note"] = m["note"] + (" | UV-relayout fix also applied per-half (extrapolated "
-                                                  "from the single-chest fix - no modern combined-double "
-                                                  "reference exists to verify this one independently)")
-    print("chest done")
 
 # ============================================================= GLINT ======
 def process_glint():
@@ -204,7 +102,6 @@ def process_glint():
 
 if __name__ == "__main__":
     process_bed()
-    process_chest()
     process_glint()
     with open(f"{ROOT}/report_stage5.json","w") as f:
         json.dump(report, f, indent=2)

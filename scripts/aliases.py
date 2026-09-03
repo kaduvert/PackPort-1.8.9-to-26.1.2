@@ -343,14 +343,6 @@ ENTITY_ALIAS_CLAIMED_SOURCES = set(old_key for old_key, _ in ENTITY_ALIASES_LIST
 # the baby model does NOT actually share the adult's UV layout here.
 BABY_RULE_EXCLUDE = {"sheep/sheep_baby", "sheep/sheep_wool_baby"}
 
-# old double-chest textures were ONE wide image; new splits each into two
-# separate left/right halves. (old_relpath_noext, new_left, new_right)
-CHEST_DOUBLE_SPLITS = [
-    ("chest/normal_double", "chest/normal_left", "chest/normal_right"),
-    ("chest/christmas_double", "chest/christmas_left", "chest/christmas_right"),
-    ("chest/trapped_double", "chest/trapped_left", "chest/trapped_right"),
-]
-
 BLOCK_NO_EQUIVALENT = {
     "flower_paeonia": "visually distinct from the Peony double-plant texture; appears to be an unused/vestigial 1.8.9 texture",
     "redstone_dust_cross": "redstone wire rendering was redesigned around a small tinted dot instead of a big cross sprite",

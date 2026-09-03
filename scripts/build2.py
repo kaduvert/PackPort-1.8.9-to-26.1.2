@@ -1,8 +1,7 @@
 import os, sys, shutil, difflib, json
 from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
-from aliases import (ENTITY_ALIASES_LIST, ENTITY_ALIAS_CLAIMED_SOURCES, BABY_RULE_EXCLUDE,
-                      CHEST_DOUBLE_SPLITS)
+from aliases import ENTITY_ALIASES_LIST, ENTITY_ALIAS_CLAIMED_SOURCES, BABY_RULE_EXCLUDE
 
 ROOT = "/home/claude/work"
 OLD = f"{ROOT}/old_pack/assets/minecraft/textures"
@@ -47,27 +46,30 @@ def process_entity():
     n_exact = n_alias = n_fuzzy = n_unmatched = 0
     old_rel_list = list(old_files.keys())
 
-    # handle the double-chest crop-splits first (consumes 3 old files -> 6 new files)
-    handled_new = set()
-    for old_rel, left_rel, right_rel in CHEST_DOUBLE_SPLITS:
-        if old_rel in old_files and (left_rel in new_files) and (right_rel in new_files):
-            im = Image.open(old_files[old_rel]).convert("RGBA")
-            w, h = im.size
-            half = w // 2
-            left_img = im.crop((0, 0, half, h))
-            right_img = im.crop((half, 0, w, h))
-            for half_img, target_rel in [(left_img, left_rel), (right_img, right_rel)]:
-                target_path = os.path.join(OUT, "entity", target_rel + ".png")
-                os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                half_img.save(target_path)
-                report["matched"].append({
-                    "category": "entity", "new": f"entity/{target_rel}.png",
-                    "old_source": f"entity/{old_rel}.png", "method": "split-crop(half)",
-                    "note": "old wide double-chest image cropped in half (left/right halves are now separate files in 26.1.2)"
-                })
-                handled_new.add(target_rel)
-            used_old.add(old_files[old_rel])
-            n_exact += 1  # count as handled
+    # Chest is handled entirely by a single consolidated fix later (see
+    # build12.py's fix_chests): 1.8.9's flat chest.png layout doesn't line
+    # up with 26.1.2's chest UV at all, so any naive copy or crop-split
+    # done here would just get overwritten/reverted downstream anyway.
+    #
+    # Mob folders in SKIP_ENTITY_FOLDERS are fully reverted by build11.py
+    # (kept only basic classic mobs), so doing any texture work on them here
+    # is pure waste. Skipping them entirely means zero writes for 350+ files
+    # that would all be thrown away anyway.
+    SKIP_ENTITY_FOLDERS = {
+        # chest - handled entirely by build12.py
+        "chest/normal", "chest/trapped", "chest/christmas", "chest/ender",
+        "chest/normal_left", "chest/normal_right",
+        "chest/trapped_left", "chest/trapped_right",
+        "chest/christmas_left", "chest/christmas_right",
+        # mob folders build11.py fully reverts (non-basic mobs)
+        "allay", "armadillo", "axolotl", "bear", "bee", "breeze", "camel",
+        "copper_golem", "creaking", "dolphin", "enderdragon", "fish", "fox",
+        "frog", "goat", "guardian", "hoglin", "horse", "illager", "llama",
+        "nautilus", "panda", "parrot", "phantom", "piglin", "rabbit",
+        "shulker", "sniffer", "strider", "tadpole", "turtle",
+        "wandering_trader", "warden", "wither", "zombie_villager",
+    }
+    handled_new = {r for r in SKIP_ENTITY_FOLDERS}
 
     resolved_source_for = {}  # new_rel -> old abs path, filled as we go
     n_rejected_dimension = 0
@@ -105,7 +107,7 @@ def process_entity():
         return abs(rx - ry) < 1e-6
 
     for new_rel, new_path in sorted(new_files.items()):
-        if new_rel in handled_new:
+        if new_rel in handled_new or any(new_rel.startswith(f"{folder}/") or new_rel == folder for folder in handled_new):
             continue
         target = os.path.join(OUT, "entity", new_rel + ".png")
         src = None; method = None
@@ -182,11 +184,6 @@ def process_entity():
             elif method.startswith("alias") or method.startswith("basename"): n_alias += 1
             else: n_fuzzy += 1  # baby-of(...) counted here too
         else:
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            shutil.copyfile(new_path, target)
-            meta = new_path + ".mcmeta"
-            if os.path.isfile(meta):
-                shutil.copyfile(meta, target + ".mcmeta")
             if not already_logged_unmatched:
                 report["unmatched"].append({
                     "category": "entity", "new": f"entity/{new_rel}.png",
@@ -231,11 +228,6 @@ def process_flat(catname, sub, alias_map=None, no_equiv=None, fuzzy_cutoff=0.85,
             elif method.startswith("alias"): n_alias += 1
             else: n_fuzzy += 1
         else:
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            shutil.copyfile(new_path, target)
-            meta = new_path + ".mcmeta"
-            if os.path.isfile(meta):
-                shutil.copyfile(meta, target + ".mcmeta")
             reason = no_equiv.get(new_rel, "no matching 1.8.9 source found (new content)")
             report["unmatched"].append({"category": catname, "new": f"{sub}/{new_rel}.png", "reason": reason})
             n_unmatched += 1
