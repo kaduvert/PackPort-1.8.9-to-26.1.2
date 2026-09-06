@@ -72,6 +72,7 @@ const el = {
 };
 
 let pyodide = null;
+let engineIsReady = false;
 let engineReady = null; // Promise, resolves when pyodide+packages+scripts+reference are all loaded
 let engineError = null;
 let oldPackFile = null;
@@ -97,8 +98,10 @@ function setStageProgress(i, total, label) {
 }
 
 function updateConvertEnabled() {
-  const ready = EXPECT_BUNDLED_REFERENCE_PACK ? Boolean(oldPackFile) : Boolean(oldPackFile && newPackFile);
-  el.convertBtn.disabled = !ready;
+  const packReady = EXPECT_BUNDLED_REFERENCE_PACK
+    ? Boolean(oldPackFile)
+    : Boolean(oldPackFile && newPackFile);
+  el.convertBtn.disabled = !(packReady && engineIsReady);
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +183,8 @@ function startEngineBoot() {
       await fetchAndWriteScripts();
       el.engineStatus.textContent = "Engine ready.";
       el.engineStatus.classList.add("ready");
+      engineIsReady = true;
+      updateConvertEnabled();
     } catch (err) {
       engineError = err;
       el.engineStatus.textContent = `Couldn't finish loading: ${err.message}`;
