@@ -52,6 +52,20 @@ def apply_removals():
            "testing - scattered/noisy overlap unlike pig/cow's clean 99.8% match)")
     revert("entity/horse/donkey_baby.png", "removed per user request / same as adult donkey")
 
+    revert("entity/pig/pig_cold_baby.png", "removed per user request")
+    revert("entity/pig/pig_warm_baby.png", "removed per user request")
+    revert("entity/pig/pig_temperate_baby.png", "removed per user request")
+
+
+    revert("entity/cow/cow_cold_baby.png", "removed per user request")
+    revert("entity/cow/cow_warm_baby.png", "removed per user request")
+    revert("entity/cow/cow_temperate_baby.png", "removed per user request")
+    revert("entity/cow/mooshroom_red_baby.png", "removed per user request")
+
+    revert("entity/bat/bat.png", "removed per user request")
+
+    revert("entity/zombie/zombie_baby.png", "removed per user request")
+
     for f in ["air", "air_empty", "air_bursting"]:
         revert(f"gui/sprites/hud/{f}.png", "removed per user request")
 
