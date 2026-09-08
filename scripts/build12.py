@@ -160,6 +160,35 @@ def port_armor_layers():
             done += 1
     print(f"armor layers ported: {done}/12")
 
+def port_netherite_armor():
+    """Derive netherite armor layers from the already-ported iron ones.
+    Iron's grayscale 183-255 range is remapped to netherite's dark
+    purple-black palette."""
+    WHITE_MIN, WHITE_MAX = 183, 255
+    DARK  = (23,  17,  17)
+    LIGHT = (118, 106, 118)
+
+    pairs = [
+        ("entity/equipment/humanoid/iron.png",           "entity/equipment/humanoid/netherite.png"),
+        ("entity/equipment/humanoid_leggings/iron.png",  "entity/equipment/humanoid_leggings/netherite.png"),
+    ]
+    for src_rel, dst_rel in pairs:
+        src = f"{OUT}/{src_rel}"
+        dst = f"{OUT}/{dst_rel}"
+        arr = np.array(Image.open(src).convert("RGBA"))
+        out = arr.copy()
+        mask = arr[:, :, 3] > 10
+        t = np.clip((arr[:, :, 0].astype(float) - WHITE_MIN) / (WHITE_MAX - WHITE_MIN), 0, 1)
+        for ch, (dc, lc) in enumerate(zip(DARK, LIGHT)):
+            out[:, :, ch] = np.where(mask, np.round(dc + t * (lc - dc)).astype(np.uint8), 0)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        Image.fromarray(out, "RGBA").save(dst)
+        set_matched(dst_rel, f"derived from {src_rel}",
+                    "reconstructed(grayscale-remap)",
+                    "iron's L=183-255 range mapped to netherite dark purple-black palette "
+                    "(DARK=(23,17,17) LIGHT=(118,106,118))")
+    print("netherite armor layers derived")
+
 
 # bed's block/entity texture is intentionally never generated (see
 # build5.py's process_bed docstring) - build9.py's full-tree audit picks
@@ -218,6 +247,7 @@ if __name__ == "__main__":
     fix_chests()
     fix_armor_icon_swap()
     port_armor_layers()
+    port_netherite_armor()
     final_audit_exact_matches()
     set_pack_icon()
     with open(f"{ROOT}/report_stage10.json", "w") as f:
