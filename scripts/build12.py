@@ -189,6 +189,49 @@ def port_netherite_armor():
                     "(DARK=(23,17,17) LIGHT=(118,106,118))")
     print("netherite armor layers derived")
 
+def remove_villager_cap():
+    """Post-processes the ported villager.png:
+    1. Erases UV overlay regions present in 1.8.9's layout that don't exist
+       in 26.1.2's format (hardcoded pixel rects would corrupt the new model).
+    2. Recolors the muted-green robe to brown/tan so it reads correctly on
+       the modern villager model (new_R=old_G, new_G=round((old_R+old_B)/2),
+       new_B=old_B; condition: G>R and R>0)."""
+    path = f"{OUT}/entity/villager/villager.png"
+    if not os.path.isfile(path):
+        print("fix_villager_texture: file not found, skipping")
+        return
+
+    ERASE_REGIONS = [
+        (slice(0,  20), slice(32, 64)),  # head overlay (hat/hood layer)
+        (slice(38, 44), slice(6,  7)),   # leg UV seam column (left)
+        (slice(38, 44), slice(13, 14)),  # leg UV seam column (right)
+        (slice(44, 64), slice(0,  28)),  # leg overlay region
+    ]
+
+    arr = np.array(Image.open(path).convert("RGBA"), dtype=np.int32)
+    out = arr.copy()
+
+    for ys, xs in ERASE_REGIONS:
+        out[ys, xs] = 0
+
+    r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
+    visible     = (arr[..., 3] > 10) & (out[..., 3] > 10)
+    muted_green = visible & (g > r) & (r > 0)
+
+    out[..., 0] = np.where(muted_green, g,                                 r)
+    out[..., 1] = np.where(muted_green, np.round((r + b) / 2).astype(int), g)
+    # channels 2 (blue) and 3 (alpha) already copied from arr unchanged
+
+    Image.fromarray(out.astype(np.uint8), "RGBA").save(path)
+
+    # update report note to document the post-processing
+    for m in report["matched"]:
+        if m["new"] == "entity/villager/villager.png":
+            m["note"] = (m.get("note", "") +
+                         " | post-processed: erased 4 UV overlay regions absent "
+                         "in 26.1.2's layout; recolored muted-green robe to brown/tan")
+    print("villager texture post-processed")
+
 
 # bed's block/entity texture is intentionally never generated (see
 # build5.py's process_bed docstring) - build9.py's full-tree audit picks
@@ -248,6 +291,7 @@ if __name__ == "__main__":
     fix_armor_icon_swap()
     port_armor_layers()
     port_netherite_armor()
+    remove_villager_cap()
     final_audit_exact_matches()
     set_pack_icon()
     with open(f"{ROOT}/report_stage10.json", "w") as f:
