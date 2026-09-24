@@ -22,7 +22,12 @@ def _extract(zip_path, dest, friendly_name):
 
     try:
         with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(dest)
+            members = [
+                name for name in zf.namelist()
+                if name.startswith("assets/")
+                or name in ("pack.mcmeta", "pack.png")
+            ]
+            zf.extractall(dest, members=members)
     except zipfile.BadZipFile:
         raise RuntimeError(
             f"{friendly_name} doesn't look like a valid .zip file. "

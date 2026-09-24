@@ -113,9 +113,9 @@ function buildSecondUploadSlotIfNeeded() {
 
   el.secondSlot.hidden = false;
   el.secondSlot.innerHTML = `
-    <label class="field-label" for="file-input-2">26.1.2 reference pack (.zip)</label>
+    <label class="field-label" for="file-input-2">26.1.2 client.jar (or default pack .zip)</label>
     <div class="simple-file-row">
-      <input type="file" id="file-input-2" accept=".zip" />
+      <input type="file" id="file-input-2" accept=".jar,application/java-archive,.zip,application/zip" />
       <span id="file-name-2" class="file-name"></span>
     </div>
   `;
@@ -124,8 +124,8 @@ function buildSecondUploadSlotIfNeeded() {
   input2.addEventListener("change", (e) => {
     const f = e.target.files[0];
     if (!f) return;
-    if (!f.name.toLowerCase().endsWith(".zip")) {
-      log(`"${f.name}" doesn't look like a .zip.`);
+    if (!f.name.toLowerCase().endsWith(".zip") && !f.name.toLowerCase().endsWith(".jar")) {
+      log(`"${f.name}" doesn't look like valid input`);
       return;
     }
     newPackFile = f;
@@ -304,8 +304,8 @@ function renderSummary(summary) {
 
 function setOldPackFile(file) {
   if (!file) return;
-  if (!file.name.toLowerCase().endsWith(".zip")) {
-    log(`"${file.name}" doesn't look like a .zip — please pick your packaged resource pack file.`);
+  if (!file.name.toLowerCase().endsWith(".zip") && !file.name.toLowerCase().endsWith(".jar")) {
+    log(`"${file.name}" doesn't look like a pack — please pick a proper pack.`);
     return;
   }
   oldPackFile = file;

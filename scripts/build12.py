@@ -280,10 +280,15 @@ def set_pack_icon():
     gold = Image.open(f"{OLD}/blocks/gold_block.png").convert("RGBA")
     gold.resize((128, 128), Image.NEAREST).save(f"{ROOT}/output_pack/pack.png")
     mcmeta_path = f"{ROOT}/output_pack/pack.mcmeta"
-    data = json.load(open(mcmeta_path))
-    data["pack"]["description"] = "\u00a7e1.8.9 Legacy Textures \u00a7f(ported for 26.1.2)"
+    data = {
+        "pack": {
+            "description": "\u00a7e1.8.9 Legacy Textures \u00a7f(ported for 26.1.2)",
+            "min_format": [84, 0],
+            "max_format": [2147483647, 0]
+        }
+    }
     json.dump(data, open(mcmeta_path, "w"), indent=2)
-    print("pack icon set to 1.8.9 gold block; pack.mcmeta description updated")
+    print("pack icon set to 1.8.9 gold block; pack.mcmeta written (hardcoded format 84)")
 
 
 if __name__ == "__main__":

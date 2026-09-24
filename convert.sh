@@ -55,7 +55,7 @@ rm -f "$WORKDIR"/report_stage*.json
 
 echo "-- Extracting packs --"
 unzip -oq "$OLD_ZIP" -d "$WORKDIR/old_pack"
-unzip -oq "$NEW_ZIP" -d "$WORKDIR/new_pack"
+unzip -oq "$NEW_ZIP" "assets/*" "pack.mcmeta" "pack.png" -d "$WORKDIR/new_pack"
 
 echo "-- Copying scripts (patching the hardcoded work path) --"
 for f in "$SCRIPT_SRC_DIR"/*.py; do
