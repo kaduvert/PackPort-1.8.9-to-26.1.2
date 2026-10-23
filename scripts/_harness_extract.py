@@ -15,6 +15,56 @@ import shutil
 import zipfile
 
 
+def _detect_zip_root_prefix(zf):
+    """
+    Return a prefix to strip (e.g. ``'MyPack/'``) when the zip looks like a
+    "zip of a folder": every entry lives under exactly one top-level
+    directory and there are no real files directly at the root.
+
+    Returns ``''`` (no stripping) when:
+    * more than one distinct top-level name is present, or
+    * at least one real file sits directly at the zip root, or
+    * the single top-level folder is named ``'assets'`` (already correct layout).
+
+    ``__MACOSX`` metadata and hidden (``'.'``-prefixed) entries are ignored.
+    """
+    top_roots = set()
+    has_root_files = False
+
+    for name in zf.namelist():
+        top = name.split('/')[0]
+        if not top or top.startswith('.') or top == '__MACOSX':
+            continue
+        top_roots.add(top)
+        # A root-level file has no '/' in the path at all.
+        if '/' not in name:
+            has_root_files = True
+
+    if has_root_files or len(top_roots) != 1:
+        return ''
+
+    folder = next(iter(top_roots))
+    return '' if folder == 'assets' else folder + '/'
+
+
+def _is_pack_file(name, prefix):
+    """True if *name* is a resource-pack entry we want, after stripping *prefix*."""
+    unprefixed = name[len(prefix):]
+    return unprefixed.startswith("assets/") or unprefixed in ("pack.mcmeta", "pack.png")
+
+
+def _extract_stripped(zf, members, prefix, dest):
+    """Extract *members* from *zf* into *dest*, removing *prefix* from each path."""
+    for member in members:
+        rel = member[len(prefix):]
+        if not rel or rel.endswith('/'):
+            continue  # skip bare directory entries
+        target = os.path.join(dest, rel)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with zf.open(member) as src, open(target, 'wb') as dst:
+            shutil.copyfileobj(src, dst)
+
+
 def _extract(zip_path, dest, friendly_name):
     if os.path.isdir(dest):
         shutil.rmtree(dest)
@@ -22,31 +72,36 @@ def _extract(zip_path, dest, friendly_name):
 
     try:
         with zipfile.ZipFile(zip_path) as zf:
-            members = [
-                name for name in zf.namelist()
-                if name.startswith("assets/")
-                or name in ("pack.mcmeta", "pack.png")
-            ]
-            zf.extractall(dest, members=members)
+            prefix = _detect_zip_root_prefix(zf)
+            members = [n for n in zf.namelist() if _is_pack_file(n, prefix)]
+            if prefix:
+                _extract_stripped(zf, members, prefix, dest)
+            else:
+                zf.extractall(dest, members=members)
     except zipfile.BadZipFile:
         raise RuntimeError(
             f"{friendly_name} doesn't look like a valid .zip file. "
             f"Please double-check the file and try again."
         )
 
-    # Normalize: if assets/ isn't directly at the top level, but there's
-    # exactly one subfolder that itself contains assets/, hoist its
-    # contents up. Handles zips that wrap everything in one extra folder.
-    if not os.path.isdir(f"{dest}/assets"):
-        entries = [e for e in os.listdir(dest) if e not in ("__MACOSX",) and not e.startswith(".")]
+    # Safety net: if assets/ still isn't directly at the top level but
+    # there's exactly one subfolder that contains it, hoist it up.
+    # Handles unusual layouts the prefix detection above may not have caught.
+    if not os.path.isdir(os.path.join(dest, "assets")):
+        entries = [
+            e for e in os.listdir(dest)
+            if e != "__MACOSX" and not e.startswith(".")
+        ]
         subdirs = [e for e in entries if os.path.isdir(os.path.join(dest, e))]
-        if len(subdirs) == 1 and os.path.isdir(os.path.join(dest, subdirs[0], "assets")):
+        if len(subdirs) == 1 and os.path.isdir(
+            os.path.join(dest, subdirs[0], "assets")
+        ):
             inner = os.path.join(dest, subdirs[0])
-            for name in os.listdir(inner):
-                shutil.move(os.path.join(inner, name), os.path.join(dest, name))
+            for item in os.listdir(inner):
+                shutil.move(os.path.join(inner, item), os.path.join(dest, item))
             shutil.rmtree(inner)
 
-    if not os.path.isdir(f"{dest}/assets/minecraft/textures"):
+    if not os.path.isdir(os.path.join(dest, "assets", "minecraft", "textures")):
         raise RuntimeError(
             f"Couldn't find assets/minecraft/textures inside {friendly_name}. "
             f"Is this a real Minecraft resource pack .zip (with pack.mcmeta "
